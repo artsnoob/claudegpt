@@ -12,6 +12,7 @@ from colorama import init, Fore, Back, Style
 import shutil
 import requests
 import anthropic
+from tavily import TavilyClient
 
 # Initialize colorama
 init(autoreset=True)
@@ -19,9 +20,11 @@ init(autoreset=True)
 # Set your API keys here
 gpt_api_key = 'xxx'
 claude_api_key = 'xxx'
+tavily_api_key = 'xxx'
 
 openai.api_key = gpt_api_key
 client = anthropic.Anthropic(api_key=claude_api_key)
+tavily_client = TavilyClient(api_key=tavily_api_key)
 
 # Global variables
 conversation_history = []
@@ -52,6 +55,22 @@ def print_with_highlighting(text):
                 # Print with white background and black text
                 print(Back.WHITE + Fore.BLACK + padded_line + Style.RESET_ALL)
             print(Style.RESET_ALL, end='')  # Reset style after code block
+
+def tavily_search(query):
+    try:
+        # Perform the search using Tavily
+        result = tavily_client.search(query)
+        
+        # Extract and format the search results
+        formatted_results = "Tavily Search Results:\n\n"
+        for item in result['results']:
+            formatted_results += f"Title: {item['title']}\n"
+            formatted_results += f"URL: {item['url']}\n"
+            formatted_results += f"Content: {item['content']}\n\n"
+        
+        return formatted_results
+    except Exception as e:
+        return f"An error occurred during the Tavily search: {str(e)}"
 
 def load_history():
     global conversation_history, user_questions
@@ -266,11 +285,15 @@ $$ |  $$\ $$ |      $$ |  $$ |$$ |  $$ |$$ |  $$ |$$ |            $$ |  $$ |$$ |
     # Instructions
     instructions = [
         "You will be prompted to choose between GPT and Claude API.",
+        "",
         "Type 'file: /path/to/file' to add a file to the chat.",
         "Type 'save: /path/to/file' to save the last response to a file.",
         "Type 'image: /path/to/image' to analyze an image.",
+        "",
+        "Type 'web: websearch' to go query the search engine.",
         "Type 'history' to view and reuse previous questions.",
         "Type 'coding' to toggle coding mode (enables/disables code block saving).",
+        "",
         "Type 'exit' to end the chat."
     ]
 
@@ -413,6 +436,12 @@ def main():
                     continue
                 print(f"{Fore.GREEN}Image from {image_path} will be analyzed.{Style.RESET_ALL}")
                 user_input = input(f"{Fore.YELLOW}You (describe what to analyze in the image): {Fore.RESET}")
+            elif user_input.lower().startswith('web:'):
+                search_query = user_input[4:].strip()
+                search_results = tavily_search(search_query)
+                print(f"{Fore.CYAN}Tavily Search Results:{Style.RESET_ALL}")
+                print(search_results)
+                user_input = f"Based on the following web search results, please answer the question: '{search_query}'\n\n{search_results}"
 
             combined_input = f"{file_content}\n\n{user_input}" if file_content else user_input
             user_questions.append(combined_input)
